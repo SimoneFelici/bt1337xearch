@@ -2,9 +2,13 @@ from enum import Enum
 from scrapling.fetchers import Fetcher
 # from scrapling.fetchers import StealthyFetcher
 import argparse
+import logging
+from curl_cffi.requests.exceptions import SessionClosed
 
 # StealthyFetcher.adaptive = True
 Fetcher.adaptive = True
+logging.getLogger('scrapling').setLevel(logging.WARNING)
+logging.getLogger('scrapling').setLevel(logging.CRITICAL)
 
 roles = [
     "user",
@@ -92,49 +96,55 @@ def argo() -> Url:
     return(kitchen)
 
 def parser() -> None:
-
-    kitchen = argo()
-    cook = kitchen.generate()
-
-    idx = 0
-    while(True):
-        idx += 1
-        url = cook + str(idx) + '/'
-        # page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
-        page = Fetcher.get(url)
-        if page.status != 200:
-            print(f"Error: status: {page.status}")
-            break
-        if page.find_by_text('No results were returned.'):
-            break
-
-        rows = page.xpath('//tbody/tr')
-
-        for row in rows:
-            name = row.css('td.coll-1.name a::text').get()
-
-            if kitchen.remove and any(word.lower() in name.lower() for word in kitchen.remove):
-                continue
-            if kitchen.search and not any(word.lower() in name.lower() for word in kitchen.search):
-                continue
-
-            link = kitchen.base_url + row.css('td.coll-1.name a:not(.icon)::attr(href)').get()
-
-            seeds = row.css('td.coll-2.seeds::text').get()
-            leeches = row.css('td.coll-3.leeches::text').get()
-            date = row.css('td.coll-date::text').get()
-            for role in roles:
-                size = row.css(f'td.coll-4.size.mob-{role}::text').get()
-                uploader = row.css(f'td.coll-5.{role} a::text').get()
-                if size and uploader:
-                    break
-
-            print(name)
-            print(link)
-            print(seeds)
-            print(leeches)
-            print(date)
-            print(size)
-            print(uploader)
-
-            print('---------')
+    try:
+        kitchen = argo()
+        cook = kitchen.generate()
+        idx = 0
+        while True:
+            idx += 1
+            print(f"Visiting page: {idx}")
+            url = cook + str(idx) + '/'
+            
+            try:
+                page = Fetcher.get(url)
+            except SessionClosed:
+                # Sessione chiusa da Ctrl+C
+                raise KeyboardInterrupt
+            
+            if page.status != 200:
+                print(f"Error: status: {page.status}")
+                break
+            if page.find_by_text('No results were returned.'):
+                break
+                
+            rows = page.xpath('//tbody/tr')
+            for row in rows:
+                name = row.css('td.coll-1.name a::text').get()
+                if kitchen.remove and any(word.lower() in name.lower() for word in kitchen.remove):
+                    continue
+                if kitchen.search and not any(word.lower() in name.lower() for word in kitchen.search):
+                    continue
+                    
+                link = kitchen.base_url + row.css('td.coll-1.name a:not(.icon)::attr(href)').get()
+                seeds = row.css('td.coll-2.seeds::text').get()
+                leeches = row.css('td.coll-3.leeches::text').get()
+                date = row.css('td.coll-date::text').get()
+                
+                for role in roles:
+                    size = row.css(f'td.coll-4.size.mob-{role}::text').get()
+                    uploader = row.css(f'td.coll-5.{role} a::text').get()
+                    if size and uploader:
+                        break
+                        
+                print(name)
+                print(link)
+                print(seeds)
+                print(leeches)
+                print(date)
+                print(size)
+                print(uploader)
+                print('---------')
+                
+    except KeyboardInterrupt:
+        print("\n\nSearch interrupted")
+        exit(0)
