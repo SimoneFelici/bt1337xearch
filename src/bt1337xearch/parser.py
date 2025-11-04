@@ -1,4 +1,14 @@
 from enum import Enum
+from scrapling.fetchers import Fetcher, AsyncFetcher, StealthyFetcher, DynamicFetcher
+
+StealthyFetcher.adaptive = True
+
+roles = [
+    "user",
+    'uploader',
+    "vip",
+    "trial-uploader"
+]
 
 class Category(Enum):
     MOVIES = "Movies"
@@ -44,14 +54,40 @@ class URL:
 
 
 def parser() -> None:
-    url1 = URL("Inception", sort=Sort.TIME)
-    print(url1.generate())
-    
-    url2 = URL("Inception", category=Category.MOVIES)
-    print(url2.generate())
-    
-    url3 = URL("Inception", category=Category.MOVIES, sort=Sort.TIME, ord=Ord.ASC)
-    print(url3.generate())
-    
-    url4 = URL("Inception")
-    print(url4.generate())
+    # Those 2 get filtered by cloudflare idk why
+    # kitchen = URL("Inception", sort=Sort.TIME)
+    # kitchen = URL("Inception")
+
+    kitchen = URL("Dexter", category=Category.MOVIES, sort=Sort.TIME, ord=Ord.DESC)
+    # kitchen = URL("Inception", category=Category.MOVIES)
+
+    url = kitchen.generate()
+    page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
+    print(page.status)
+
+    rows = page.xpath('//tbody/tr')
+
+    for row in rows:
+        name = row.css('td.coll-1.name a::text').get()
+        print(name)
+
+        seeds = row.css('td.coll-2.seeds::text').get()
+        print(seeds)
+
+        leeches = row.css('td.coll-3.leeches::text').get()
+        print(leeches)
+
+        date = row.css('td.coll-date::text').get()
+        print(date)
+
+        for role in roles:
+            size = row.css(f'td.coll-4.size.mob-{role}::text').get()
+            uploader = row.css(f'td.coll-5.{role} a::text').get()
+            if size and uploader:
+                break
+
+        print(size)
+        print(uploader)
+
+        # exit(1)
+        print('---------')
