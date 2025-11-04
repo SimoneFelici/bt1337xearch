@@ -44,13 +44,13 @@ class URL:
         search_name = self.name.replace(" ", "+")
 
         if self.sort and self.category:
-            return f"{self.base_url}/sort-category-search/{search_name}/{self.category.value}/{self.sort.value}/{self.ord.value}/1/"
+            return f"{self.base_url}/sort-category-search/{search_name}/{self.category.value}/{self.sort.value}/{self.ord.value}/"
         elif self.sort:
-            return f"{self.base_url}/sort-search/{search_name}/{self.sort.value}/{self.ord.value}/1/"
+            return f"{self.base_url}/sort-search/{search_name}/{self.sort.value}/{self.ord.value}/"
         elif self.category:
-            return f"{self.base_url}/category-search/{search_name}/{self.category.value}/1/"
+            return f"{self.base_url}/category-search/{search_name}/{self.category.value}/"
         else:
-            return f"{self.base_url}/search/{search_name}/1/"
+            return f"{self.base_url}/search/{search_name}/"
 
 
 def parser() -> None:
@@ -61,33 +61,39 @@ def parser() -> None:
     kitchen = URL("Dexter", category=Category.MOVIES, sort=Sort.TIME, ord=Ord.DESC)
     # kitchen = URL("Inception", category=Category.MOVIES)
 
-    url = kitchen.generate()
-    page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
-    print(page.status)
+    cook = kitchen.generate()
 
-    rows = page.xpath('//tbody/tr')
+    idx = 0
+    while(True):
+        idx += 1
+        url = cook + str(idx) + '/'
+        page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
+        if page.status != 200:
+            print(f"Error: status: {page.status}")
+        if page.find_by_text('No results were returned.'):
+            exit(1)
 
-    for row in rows:
-        name = row.css('td.coll-1.name a::text').get()
-        print(name)
+        rows = page.xpath('//tbody/tr')
 
-        seeds = row.css('td.coll-2.seeds::text').get()
-        print(seeds)
+        for row in rows:
+            name = row.css('td.coll-1.name a::text').get()
+            print(name)
 
-        leeches = row.css('td.coll-3.leeches::text').get()
-        print(leeches)
+            seeds = row.css('td.coll-2.seeds::text').get()
+            print(seeds)
 
-        date = row.css('td.coll-date::text').get()
-        print(date)
+            leeches = row.css('td.coll-3.leeches::text').get()
+            print(leeches)
 
-        for role in roles:
-            size = row.css(f'td.coll-4.size.mob-{role}::text').get()
-            uploader = row.css(f'td.coll-5.{role} a::text').get()
-            if size and uploader:
-                break
+            date = row.css('td.coll-date::text').get()
+            print(date)
 
-        print(size)
-        print(uploader)
+            for role in roles:
+                size = row.css(f'td.coll-4.size.mob-{role}::text').get()
+                uploader = row.css(f'td.coll-5.{role} a::text').get()
+                if size and uploader:
+                    break
+            print(size)
+            print(uploader)
 
-        # exit(1)
-        print('---------')
+            print('---------')
