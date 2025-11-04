@@ -11,6 +11,9 @@ bt1337xearch is a command-line tool that searches 1337x.to torrents with:
 
 ## Installation
 ```bash
+uv tool install bt1337xearch
+```
+```bash
 uv pip install -e .
 ```
 
