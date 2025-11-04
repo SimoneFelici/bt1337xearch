@@ -35,11 +35,13 @@ class Ord(Enum):
 class Url:
     base_url = "https://1337x.to"
 
-    def __init__(self, name: str, category: Category = None, sort: Sort = None, ord: Ord = Ord.DESC):
+    def __init__(self, name: str, category: Category = None, sort: Sort = None, ord: Ord = Ord.DESC, search: list[str] = None, remove: list[str] = None):
         self.name = name
         self.category = category
         self.sort = sort
         self.ord = ord
+        self.search = [] or search
+        self.remove = [] or remove
     
     def generate(self) -> str:
         search_name = self.name.replace(" ", "+")
@@ -63,13 +65,27 @@ def argo() -> Url:
     parser.add_argument("-c", "--category", help="Category", choices=['MOVIE', 'TV', 'GAME', 'MUSIC', 'APP', 'DOCU', 'ANIME', 'OTHER', 'XXX'])
     parser.add_argument("-s", "--sort", help="Sort by", choices=['TIME', 'SIZE', 'SEED', 'LEECH'])
     parser.add_argument("-o", "--order", help="Order by", choices=['ASC', 'DESC'], default='DESC')
+    parser.add_argument("-f", "--filter", nargs='+', help="Filter by words\nYou can use \'~\' and \'+\' to filter with or without that word.")
 
     args = parser.parse_args()
+
+    search = []
+    remove = []
+
+    if (args.filter):
+        for filter in args.filter:
+            if (filter[0] == '+'):
+                search.append(filter[1:].strip())
+            elif (filter[0] == '~'):
+                remove.append(filter[1:].strip())
+
     kitchen = Url(
         args.name, 
         category=Category[args.category] if args.category else None,
         sort=Sort[args.sort] if args.sort else None,
-        ord=Ord[args.order]
+        ord=Ord[args.order],
+        search=search,
+        remove=remove
     )
     return(kitchen)
 
@@ -83,39 +99,46 @@ def parser() -> None:
 
     # kitchen = URL("Inception", category=Category.MOVIES)
 
+    print(kitchen.search)
+    print(kitchen.remove)
+
     cook = kitchen.generate()
 
     idx = 0
     while(True):
         idx += 1
         url = cook + str(idx) + '/'
-        exit(url)
+        # exit(url)
         page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
         if page.status != 200:
             print(f"Error: status: {page.status}")
+            break
         if page.find_by_text('No results were returned.'):
-            exit(1)
+            break
 
         rows = page.xpath('//tbody/tr')
 
         for row in rows:
             name = row.css('td.coll-1.name a::text').get()
-            print(name)
+
+            if kitchen.remove and any(word.lower() in name.lower() for word in kitchen.remove):
+                continue
+            if kitchen.search and not any(word.lower() in name.lower() for word in kitchen.search):
+                continue
 
             seeds = row.css('td.coll-2.seeds::text').get()
-            print(seeds)
-
             leeches = row.css('td.coll-3.leeches::text').get()
-            print(leeches)
-
             date = row.css('td.coll-date::text').get()
-            print(date)
-
             for role in roles:
                 size = row.css(f'td.coll-4.size.mob-{role}::text').get()
                 uploader = row.css(f'td.coll-5.{role} a::text').get()
                 if size and uploader:
                     break
+
+            print(name)
+            print(seeds)
+            print(leeches)
+            print(date)
             print(size)
             print(uploader)
 
