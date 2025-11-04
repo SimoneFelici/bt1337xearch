@@ -1,8 +1,10 @@
 from enum import Enum
-from scrapling.fetchers import Fetcher, AsyncFetcher, StealthyFetcher, DynamicFetcher
+from scrapling.fetchers import Fetcher
+# from scrapling.fetchers import StealthyFetcher
 import argparse
 
-StealthyFetcher.adaptive = True
+# StealthyFetcher.adaptive = True
+Fetcher.adaptive = True
 
 roles = [
     "user",
@@ -92,24 +94,14 @@ def argo() -> Url:
 def parser() -> None:
 
     kitchen = argo()
-
-    # Those 2 get filtered by cloudflare idk why
-    # kitchen = URL("Inception", sort=Sort.TIME)
-    # kitchen = URL("Inception")
-
-    # kitchen = URL("Inception", category=Category.MOVIES)
-
-    print(kitchen.search)
-    print(kitchen.remove)
-
     cook = kitchen.generate()
 
     idx = 0
     while(True):
         idx += 1
         url = cook + str(idx) + '/'
-        exit(url)
-        page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
+        # page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
+        page = Fetcher.get(url)
         if page.status != 200:
             print(f"Error: status: {page.status}")
             break
@@ -126,6 +118,8 @@ def parser() -> None:
             if kitchen.search and not any(word.lower() in name.lower() for word in kitchen.search):
                 continue
 
+            link = kitchen.base_url + row.css('td.coll-1.name a:not(.icon)::attr(href)').get()
+
             seeds = row.css('td.coll-2.seeds::text').get()
             leeches = row.css('td.coll-3.leeches::text').get()
             date = row.css('td.coll-date::text').get()
@@ -136,6 +130,7 @@ def parser() -> None:
                     break
 
             print(name)
+            print(link)
             print(seeds)
             print(leeches)
             print(date)

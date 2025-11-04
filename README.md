@@ -7,7 +7,7 @@ Better search for 1337x[.]to with basic filters
 bt1337xearch is a command-line tool that searches 1337x.to torrents with:
 - Category filtering (Movies, TV, Games, etc.)
 - Sorting options (by time, size, seeders, leechers)
-- Advanced word filtering (include/exclude keywords)
+- Keyword filtering (include/exclude keywords)
 
 ## Installation
 ```bash
