@@ -1,5 +1,6 @@
 from enum import Enum
 from scrapling.fetchers import Fetcher, AsyncFetcher, StealthyFetcher, DynamicFetcher
+import argparse
 
 StealthyFetcher.adaptive = True
 
@@ -11,11 +12,11 @@ roles = [
 ]
 
 class Category(Enum):
-    MOVIES = "Movies"
+    MOVIE = "Movies"
     TV = "TV"
-    GAMES = "Games"
+    GAME = "Games"
     MUSIC = "Music"
-    APPS = "Apps"
+    APP = "Apps"
     DOCU = "Documentaries"
     ANIME = "Anime"
     OTHER = "Other"
@@ -31,7 +32,7 @@ class Ord(Enum):
     ASC = "asc"
     DESC = "desc"
 
-class URL:
+class Url:
     base_url = "https://1337x.to"
 
     def __init__(self, name: str, category: Category = None, sort: Sort = None, ord: Ord = Ord.DESC):
@@ -52,13 +53,34 @@ class URL:
         else:
             return f"{self.base_url}/search/{search_name}/"
 
+def argo() -> Url:
+    parser = argparse.ArgumentParser(
+        prog='bt1337xearch',
+        description='Better search for 1337x[.]to',
+        epilog='Example:\nbt1337xearch -n Dexter -c TV -s TIME -o ASC'
+    )
+    parser.add_argument("-n", "--name", help="Name of the Media", required=True)
+    parser.add_argument("-c", "--category", help="Category", choices=['MOVIE', 'TV', 'GAME', 'MUSIC', 'APP', 'DOCU', 'ANIME', 'OTHER', 'XXX'])
+    parser.add_argument("-s", "--sort", help="Sort by", choices=['TIME', 'SIZE', 'SEED', 'LEECH'])
+    parser.add_argument("-o", "--order", help="Order by", choices=['ASC', 'DESC'], default='DESC')
+
+    args = parser.parse_args()
+    kitchen = Url(
+        args.name, 
+        category=Category[args.category] if args.category else None,
+        sort=Sort[args.sort] if args.sort else None,
+        ord=Ord[args.order]
+    )
+    return(kitchen)
 
 def parser() -> None:
+
+    kitchen = argo()
+
     # Those 2 get filtered by cloudflare idk why
     # kitchen = URL("Inception", sort=Sort.TIME)
     # kitchen = URL("Inception")
 
-    kitchen = URL("Dexter", category=Category.MOVIES, sort=Sort.TIME, ord=Ord.DESC)
     # kitchen = URL("Inception", category=Category.MOVIES)
 
     cook = kitchen.generate()
@@ -67,6 +89,7 @@ def parser() -> None:
     while(True):
         idx += 1
         url = cook + str(idx) + '/'
+        exit(url)
         page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
         if page.status != 200:
             print(f"Error: status: {page.status}")
