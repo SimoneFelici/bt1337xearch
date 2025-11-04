@@ -1,7 +1,7 @@
 [project]
 name = "bt1337xearch"
 version = "0.1.0"
-description = "Better search for 1337x[.]to"
+description = "Better search for 1337x[.]to with basic filters"
 readme = "README.md"
 authors = [
     { name = "SimoneFelici", email = "felicisimone9@gmail.com" }

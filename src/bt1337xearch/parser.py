@@ -108,7 +108,7 @@ def parser() -> None:
     while(True):
         idx += 1
         url = cook + str(idx) + '/'
-        # exit(url)
+        exit(url)
         page = StealthyFetcher.fetch(url, headless=True, network_idle=True)
         if page.status != 200:
             print(f"Error: status: {page.status}")
