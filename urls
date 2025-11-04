@@ -1,0 +1,21 @@
+Categories:
+              <option value="/category-search/Dexter/Movies/1/">Movies Only</option>
+              <option value="/category-search/Dexter/TV/1/">TV Only</option>
+              <option value="/category-search/Dexter/Games/1/">Games Only</option>
+              <option value="/category-search/Dexter/Music/1/">Music Only</option>
+              <option value="/category-search/Dexter/Apps/1/">Applications Only</option>
+              <option value="/category-search/Dexter/Documentaries/1/">Documentaries Only</option>
+              <option value="/category-search/Dexter/Anime/1/">Anime Only</option>
+              <option value="/category-search/Dexter/Other/1/">Other Only</option>
+              <option value="/category-search/Dexter/XXX/1/">XXX Only</option>
+Sort:
+                           <option value="/sort-search/Dexter/time/desc/1/">Sort by Time</option>
+                           <option value="/sort-search/Dexter/size/desc/1/">Sort by Size</option>
+                           <option value="/sort-search/Dexter/seeders/desc/1/">Sort by Seeders</option>
+                           <option value="/sort-search/Dexter/leechers/desc/1/">Sort by Leechers</option>
+
+Category + Sort (desc || asc):
+                           <option value="/sort-category-search/Dexter/Movies/time/desc/1/">Sort by Time</option>
+                           <option value="/sort-category-search/Dexter/Movies/size/desc/1/">Sort by Size</option>
+                           <option value="/sort-category-search/Dexter/Movies/seeders/desc/1/">Sort by Seeders</option>
+                           <option value="/sort-category-search/Dexter/Movies/leechers/desc/1/">Sort by Leechers</option>

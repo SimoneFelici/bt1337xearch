@@ -1,0 +1,19 @@
+[project]
+name = "bt1337xearch"
+version = "0.1.0"
+description = "Better search for 1337x[.]to"
+readme = "README.md"
+authors = [
+    { name = "SimoneFelici", email = "felicisimone9@gmail.com" }
+]
+requires-python = ">=3.13, <3.14"
+dependencies = [
+    "scrapling[fetchers]"
+]
+
+[project.scripts]
+bt1337xearch = "bt1337xearch:main"
+
+[build-system]
+requires = ["uv_build>=0.9.7,<0.10.0"]
+build-backend = "uv_build"
