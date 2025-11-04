@@ -22,19 +22,19 @@ uv pip install -e .
 
 ## Usage
 
-### Basic search
+### Basic search (Probably broken)
 ```bash
 bt1337xearch -n "Dexter"
 ```
 
-### Search with category
+### Search with category (Recommended)
 ```bash
-bt1337xearch -n "Inception" -c MOVIE
+bt1337xearch -n "Lupin" -c ANIME
 ```
 
 ### Search with sorting
 ```bash
-bt1337xearch -n "Ubuntu" -c APP -s SEED -o DESC
+bt1337xearch -n "Alien" -c MOVIE -s TIME -o DESC
 ```
 
 ### Advanced filtering
@@ -66,10 +66,10 @@ bt1337xearch -n "Dexter" -c TV -f +1080p "~x265 HEVC" ~CAM
 bt1337xearch -n Dexter -c TV -s SEED
 
 # Search for movies with "1080p", exclude "CAM" releases
-bt1337xearch -n "Avengers" -c MOVIE -f +1080p '~CAM'
+bt1337xearch -n "Angel's Egg" -c MOVIE -s TIME -o DESC -f +1080p '~CAM'
 
 # Search for games, sorted by upload time
-bt1337xearch -n "Cyberpunk" -c GAME -s TIME -o ASC
+bt1337xearch -n "Peak" -c GAME -s TIME -o ASC
 ```
 
 ## Output
