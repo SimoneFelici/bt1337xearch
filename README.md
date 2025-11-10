@@ -17,7 +17,7 @@ or
 ```bash
 git clone https://github.com/SimoneFelici/bt1337xearch.git
 cd bt1337xearch
-uv pip install -e .
+uv tool install .
 ```
 
 ## Usage
