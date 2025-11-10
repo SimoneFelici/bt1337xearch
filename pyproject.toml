@@ -6,7 +6,7 @@ readme = "README.md"
 authors = [
     { name = "SimoneFelici", email = "felicisimone9@gmail.com" }
 ]
-requires-python = ">=3.13, <3.14"
+requires-python = ">=3.14"
 dependencies = [
     "scrapling[fetchers]>=0.3.8",
     "textual>=6.5.0",

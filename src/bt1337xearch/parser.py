@@ -1,11 +1,14 @@
 from enum import Enum
 from scrapling.fetchers import Fetcher
-# from scrapling.fetchers import StealthyFetcher
 import argparse
 import logging
 from curl_cffi.requests.exceptions import SessionClosed
+from textual.app import App, ComposeResult
+from textual.widgets import Header, Footer, Static, Label, LoadingIndicator
+from textual.containers import VerticalScroll, Vertical
+from textual.binding import Binding
+import threading
 
-# StealthyFetcher.adaptive = True
 Fetcher.adaptive = True
 logging.getLogger('scrapling').setLevel(logging.WARNING)
 logging.getLogger('scrapling').setLevel(logging.CRITICAL)
@@ -16,6 +19,214 @@ roles = [
     "vip",
     "trial-uploader"
 ]
+
+class ResultWidget(Static):
+    def __init__(self, result: dict, **kwargs):
+        super().__init__(**kwargs)
+        self.result = result
+        
+    def compose(self) -> ComposeResult:
+        yield Label(f"[bold cyan]{self.result['name']}[/]")
+        yield Label(f"[yellow]Link:[/] {self.result['link']}")
+        yield Label(f"[green]Seeds:[/] {self.result['seeds']} | [red]Leeches:[/] {self.result['leeches']}")
+        yield Label(f"[blue]Size:[/] {self.result['size']} | [magenta]Date:[/] {self.result['date']}")
+        yield Label(f"[dim]Uploader: {self.result['uploader']}[/]")
+        yield Label("[dim]─" * 50 + "[/]")
+
+class MyApp(App):
+    TITLE = "bt1337xearch"
+    
+    BINDINGS = [
+        Binding("right,l", "next_page", "Prossimi 5", show=True),
+        Binding("left,h", "prev_page", "Precedenti 5", show=True),
+        Binding("q", "quit", "Esci", show=True),
+    ]
+    
+    def __init__(self, kitchen, **kwargs):
+        super().__init__(**kwargs)
+        self.kitchen = kitchen
+        self.all_results = []
+        self.current_page = 0
+        self.results_per_page = 5
+        self.fetched_pages = set()
+        self.fetching_pages = set()
+        self.max_page_number = None
+        self.lock = threading.Lock()
+        self.is_fetching = False
+        
+    def compose(self) -> ComposeResult:
+        yield Header()
+        with Vertical(id="results-container"):
+            yield LoadingIndicator(id="loading")
+        yield Static(id="status")
+        yield Footer()
+        
+    def on_mount(self):
+        self.update_status("Caricamento prima pagina...")
+        self.fetch_page_async(1)
+        
+    def fetch_page_async(self, page_number: int):
+        if page_number in self.fetched_pages or page_number in self.fetching_pages:
+            return
+            
+        if self.max_page_number and page_number > self.max_page_number:
+            return
+            
+        self.fetching_pages.add(page_number)
+        thread = threading.Thread(
+            target=self.fetch_page,
+            args=(page_number,),
+            daemon=True,
+            name=f"fetch_page_{page_number}"
+        )
+        thread.start()
+        
+    def fetch_page(self, page_number: int):
+        cook = self.kitchen.generate()
+        url = cook + str(page_number) + '/'
+        
+        try:
+            page = Fetcher.get(url)
+            
+            if page.status != 200:
+                with self.lock:
+                    self.max_page_number = page_number - 1
+                    self.fetching_pages.discard(page_number)
+                return
+                
+            if page.find_by_text('No results were returned.'):
+                with self.lock:
+                    self.max_page_number = page_number - 1
+                    self.fetching_pages.discard(page_number)
+                return
+                
+            rows = page.xpath('//tbody/tr')
+            page_results = []
+            
+            for row in rows:
+                name = row.css('td.coll-1.name a::text').get()
+                if self.kitchen.remove and any(word.lower() in name.lower() for word in self.kitchen.remove):
+                    continue
+                if self.kitchen.search and not any(word.lower() in name.lower() for word in self.kitchen.search):
+                    continue
+                    
+                link = self.kitchen.base_url + row.css('td.coll-1.name a:not(.icon)::attr(href)').get()
+                seeds = row.css('td.coll-2.seeds::text').get()
+                leeches = row.css('td.coll-3.leeches::text').get()
+                date = row.css('td.coll-date::text').get()
+                
+                size = None
+                uploader = None
+                for role in roles:
+                    size = row.css(f'td.coll-4.size.mob-{role}::text').get()
+                    uploader = row.css(f'td.coll-5.{role} a::text').get()
+                    if size and uploader:
+                        break
+                
+                page_results.append({
+                    'name': name,
+                    'link': link,
+                    'seeds': seeds,
+                    'leeches': leeches,
+                    'date': date,
+                    'size': size,
+                    'uploader': uploader,
+                    'page': page_number
+                })
+            
+            with self.lock:
+                self.all_results.extend(page_results)
+                self.fetched_pages.add(page_number)
+                self.fetching_pages.discard(page_number)
+            
+            # Aggiorna l'UI se siamo sulla pagina corrente
+            self.call_from_thread(self.show_current_page)
+            
+        except SessionClosed:
+            with self.lock:
+                self.max_page_number = page_number - 1
+                self.fetching_pages.discard(page_number)
+        except Exception as e:
+            with self.lock:
+                self.fetching_pages.discard(page_number)
+            self.call_from_thread(self.update_status, f"Errore pagina {page_number}: {str(e)}")
+        
+    def get_results_for_display_page(self, display_page: int) -> list:
+        start_idx = display_page * self.results_per_page
+        end_idx = start_idx + self.results_per_page
+        
+        with self.lock:
+            return self.all_results[start_idx:end_idx]
+    
+    def show_current_page(self):
+        container = self.query_one("#results-container")
+        container.remove_children()
+        
+        page_results = self.get_results_for_display_page(self.current_page)
+        
+        if not page_results and self.current_page == 0:
+            container.mount(LoadingIndicator())
+            self.update_status("Caricamento risultati...")
+        elif not page_results:
+            container.mount(Label("[yellow]Nessun risultato disponibile per questa pagina[/]"))
+        else:
+            for result in page_results:
+                container.mount(ResultWidget(result))
+        
+        with self.lock:
+            total_results = len(self.all_results)
+            fetched_count = len(self.fetched_pages)
+            fetching_count = len(self.fetching_pages)
+        
+        total_pages = (total_results + self.results_per_page - 1) // self.results_per_page if total_results > 0 else 1
+        start_idx = self.current_page * self.results_per_page + 1
+        end_idx = min((self.current_page + 1) * self.results_per_page, total_results)
+        
+        status_msg = f"Pagina {self.current_page + 1}/{total_pages} | Risultati {start_idx}-{end_idx} di {total_results}"
+        if fetching_count > 0:
+            status_msg += f" | Caricamento in corso... (pagine: {fetched_count})"
+        else:
+            status_msg += f" | Pagine caricate: {fetched_count}"
+            
+        self.update_status(status_msg)
+        
+        self.prefetch_pages()
+        
+    def prefetch_pages(self):
+        current_result_start = self.current_page * self.results_per_page
+        current_result_end = current_result_start + self.results_per_page
+        
+        results_per_site_page = 20
+        
+        pages_ahead = 3
+        future_result_end = current_result_end + (pages_ahead * self.results_per_page)
+        
+        site_pages_needed = (future_result_end // results_per_site_page) + 2
+        
+        for site_page in range(1, site_pages_needed + 1):
+            self.fetch_page_async(site_page)
+        
+    def update_status(self, message: str):
+        try:
+            status = self.query_one("#status")
+            status.update(message)
+        except:
+            pass
+        
+    def action_next_page(self):
+        with self.lock:
+            total_results = len(self.all_results)
+        
+        max_page = (total_results - 1) // self.results_per_page
+        
+        if total_results == 0 or self.current_page < max_page:
+            self.current_page += 1
+            self.show_current_page()
+            
+    def action_prev_page(self):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.show_current_page()
 
 class Category(Enum):
     MOVIE = "Movies"
@@ -71,7 +282,7 @@ def argo() -> Url:
     parser.add_argument("-c", "--category", help="Category", choices=['MOVIE', 'TV', 'GAME', 'MUSIC', 'APP', 'DOCU', 'ANIME', 'OTHER', 'XXX'])
     parser.add_argument("-s", "--sort", help="Sort by", choices=['TIME', 'SIZE', 'SEED', 'LEECH'])
     parser.add_argument("-o", "--order", help="Order by", choices=['ASC', 'DESC'], default='DESC')
-    parser.add_argument("-f", "--filter", nargs='+', help="Filter by words\nYou can use \'~\' and \'+\' to filter with or without that word.")
+    parser.add_argument("-f", "--filter", nargs='+', help="Filter by words\nYou can use '~' and '+' to filter with or without that word.")
 
     args = parser.parse_args()
 
@@ -98,51 +309,8 @@ def argo() -> Url:
 def parser() -> None:
     try:
         kitchen = argo()
-        cook = kitchen.generate()
-        idx = 0
-        while True:
-            idx += 1
-            print(f"Visiting page: {idx}")
-            url = cook + str(idx) + '/'
-            
-            try:
-                page = Fetcher.get(url)
-            except SessionClosed:
-                raise KeyboardInterrupt
-            
-            if page.status != 200:
-                print(f"Error: status: {page.status}")
-                break
-            if page.find_by_text('No results were returned.'):
-                break
-                
-            rows = page.xpath('//tbody/tr')
-            for row in rows:
-                name = row.css('td.coll-1.name a::text').get()
-                if kitchen.remove and any(word.lower() in name.lower() for word in kitchen.remove):
-                    continue
-                if kitchen.search and not any(word.lower() in name.lower() for word in kitchen.search):
-                    continue
-                    
-                link = kitchen.base_url + row.css('td.coll-1.name a:not(.icon)::attr(href)').get()
-                seeds = row.css('td.coll-2.seeds::text').get()
-                leeches = row.css('td.coll-3.leeches::text').get()
-                date = row.css('td.coll-date::text').get()
-                
-                for role in roles:
-                    size = row.css(f'td.coll-4.size.mob-{role}::text').get()
-                    uploader = row.css(f'td.coll-5.{role} a::text').get()
-                    if size and uploader:
-                        break
-                        
-                print(name)
-                print(link)
-                print(seeds)
-                print(leeches)
-                print(date)
-                print(size)
-                print(uploader)
-                print('---------')
+        app = MyApp(kitchen, ansi_color=True)
+        app.run()
                 
     except KeyboardInterrupt:
         print("\n\nSearch interrupted")
