@@ -108,7 +108,6 @@ def parser() -> None:
             try:
                 page = Fetcher.get(url)
             except SessionClosed:
-                # Sessione chiusa da Ctrl+C
                 raise KeyboardInterrupt
             
             if page.status != 200:
