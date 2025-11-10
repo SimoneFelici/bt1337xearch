@@ -27,7 +27,8 @@ class ResultWidget(Static):
         
     def compose(self) -> ComposeResult:
         yield Label(f"[bold cyan]{self.result['name']}[/]")
-        yield Label(f"[yellow]Link:[/] {self.result['link']}")
+        yield Label(f"[yellow]Link:[/]")
+        yield Label(f"{self.result['link']}")
         yield Label(f"[green]Seeds:[/] {self.result['seeds']} | [red]Leeches:[/] {self.result['leeches']}")
         yield Label(f"[blue]Size:[/] {self.result['size']} | [magenta]Date:[/] {self.result['date']}")
         yield Label(f"[dim]Uploader: {self.result['uploader']}[/]")
@@ -37,8 +38,8 @@ class MyApp(App):
     TITLE = "bt1337xearch"
     
     BINDINGS = [
-        Binding("right,l", "next_page", "Prossimi 5", show=True),
-        Binding("left,h", "prev_page", "Precedenti 5", show=True),
+        Binding("left,h", "prev_page", "Previous 5", show=True),
+        Binding("right,l", "next_page", "Next 5", show=True),
         Binding("q", "quit", "Esci", show=True),
     ]
     
@@ -62,7 +63,7 @@ class MyApp(App):
         yield Footer()
         
     def on_mount(self):
-        self.update_status("Caricamento prima pagina...")
+        self.update_status("Loading...")
         self.fetch_page_async(1)
         
     def fetch_page_async(self, page_number: int):
@@ -139,7 +140,6 @@ class MyApp(App):
                 self.fetched_pages.add(page_number)
                 self.fetching_pages.discard(page_number)
             
-            # Aggiorna l'UI se siamo sulla pagina corrente
             self.call_from_thread(self.show_current_page)
             
         except SessionClosed:
@@ -149,7 +149,7 @@ class MyApp(App):
         except Exception as e:
             with self.lock:
                 self.fetching_pages.discard(page_number)
-            self.call_from_thread(self.update_status, f"Errore pagina {page_number}: {str(e)}")
+            self.call_from_thread(self.update_status, f"Page error {page_number}: {str(e)}")
         
     def get_results_for_display_page(self, display_page: int) -> list:
         start_idx = display_page * self.results_per_page
@@ -166,9 +166,9 @@ class MyApp(App):
         
         if not page_results and self.current_page == 0:
             container.mount(LoadingIndicator())
-            self.update_status("Caricamento risultati...")
+            self.update_status("Loading...")
         elif not page_results:
-            container.mount(Label("[yellow]Nessun risultato disponibile per questa pagina[/]"))
+            container.mount(Label("[yellow]No results[/]"))
         else:
             for result in page_results:
                 container.mount(ResultWidget(result))
@@ -182,11 +182,11 @@ class MyApp(App):
         start_idx = self.current_page * self.results_per_page + 1
         end_idx = min((self.current_page + 1) * self.results_per_page, total_results)
         
-        status_msg = f"Pagina {self.current_page + 1}/{total_pages} | Risultati {start_idx}-{end_idx} di {total_results}"
+        status_msg = f"Page {self.current_page + 1}/{total_pages} | Results {start_idx}-{end_idx} of {total_results}"
         if fetching_count > 0:
-            status_msg += f" | Caricamento in corso... (pagine: {fetched_count})"
+            status_msg += f" | Loading... (pages: {fetched_count})"
         else:
-            status_msg += f" | Pagine caricate: {fetched_count}"
+            status_msg += f" | Loaded pages: {fetched_count}"
             
         self.update_status(status_msg)
         
