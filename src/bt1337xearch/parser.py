@@ -1,15 +1,14 @@
 from enum import Enum
-from scrapling.fetchers import Fetcher
+from scrapling.fetchers import StealthySession
 import argparse
 import logging
-from curl_cffi.requests.exceptions import SessionClosed
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Label, LoadingIndicator
 from textual.containers import VerticalScroll, Vertical
 from textual.binding import Binding
-import threading
+from textual.worker import Worker, WorkerState
+import asyncio
 
-Fetcher.adaptive = True
 logging.getLogger('scrapling').setLevel(logging.WARNING)
 logging.getLogger('scrapling').setLevel(logging.CRITICAL)
 
@@ -52,8 +51,7 @@ class MyApp(App):
         self.fetched_pages = set()
         self.fetching_pages = set()
         self.max_page_number = None
-        self.lock = threading.Lock()
-        self.is_fetching = False
+        self.session = None
         
     def compose(self) -> ComposeResult:
         yield Header()
@@ -62,9 +60,20 @@ class MyApp(App):
         yield Static(id="status")
         yield Footer()
         
-    def on_mount(self):
+    async def on_mount(self):
+        self.update_status("Initializing...")
+        # Create the StealthySession and initialize the browser context
+        self.session = StealthySession(headless=True, solve_cloudflare=True)
+        await asyncio.to_thread(self.session.__enter__)
         self.update_status("Loading...")
         self.fetch_page_async(1)
+        
+    async def on_unmount(self):
+        if self.session:
+            try:
+                await asyncio.to_thread(self.session.__exit__, None, None, None)
+            except:
+                pass
         
     def fetch_page_async(self, page_number: int):
         if page_number in self.fetched_pages or page_number in self.fetching_pages:
@@ -74,31 +83,27 @@ class MyApp(App):
             return
             
         self.fetching_pages.add(page_number)
-        thread = threading.Thread(
-            target=self.fetch_page,
-            args=(page_number,),
-            daemon=True,
-            name=f"fetch_page_{page_number}"
-        )
-        thread.start()
+        self.run_worker(self.fetch_page(page_number), exclusive=False)
         
-    def fetch_page(self, page_number: int):
+    async def fetch_page(self, page_number: int):
         cook = self.kitchen.generate()
         url = cook + str(page_number) + '/'
         
         try:
-            page = Fetcher.get(url)
+            page = await asyncio.to_thread(
+                self.session.fetch,
+                url,
+                google_search=False
+            )
             
             if page.status != 200:
-                with self.lock:
-                    self.max_page_number = page_number - 1
-                    self.fetching_pages.discard(page_number)
+                self.max_page_number = page_number - 1
+                self.fetching_pages.discard(page_number)
                 return
                 
             if page.find_by_text('No results were returned.'):
-                with self.lock:
-                    self.max_page_number = page_number - 1
-                    self.fetching_pages.discard(page_number)
+                self.max_page_number = page_number - 1
+                self.fetching_pages.discard(page_number)
                 return
                 
             rows = page.xpath('//tbody/tr')
@@ -106,6 +111,9 @@ class MyApp(App):
             
             for row in rows:
                 name = row.css('td.coll-1.name a::text').get()
+                if not name:
+                    continue
+                    
                 if self.kitchen.remove and any(word.lower() in name.lower() for word in self.kitchen.remove):
                     continue
                 if self.kitchen.search and not any(word.lower() in name.lower() for word in self.kitchen.search):
@@ -135,28 +143,20 @@ class MyApp(App):
                     'page': page_number
                 })
             
-            with self.lock:
-                self.all_results.extend(page_results)
-                self.fetched_pages.add(page_number)
-                self.fetching_pages.discard(page_number)
+            self.all_results.extend(page_results)
+            self.fetched_pages.add(page_number)
+            self.fetching_pages.discard(page_number)
             
-            self.call_from_thread(self.show_current_page)
+            self.show_current_page()
             
-        except SessionClosed:
-            with self.lock:
-                self.max_page_number = page_number - 1
-                self.fetching_pages.discard(page_number)
         except Exception as e:
-            with self.lock:
-                self.fetching_pages.discard(page_number)
-            self.call_from_thread(self.update_status, f"Page error {page_number}: {str(e)}")
+            self.fetching_pages.discard(page_number)
+            self.update_status(f"Page error {page_number}: {str(e)}")
         
     def get_results_for_display_page(self, display_page: int) -> list:
         start_idx = display_page * self.results_per_page
         end_idx = start_idx + self.results_per_page
-        
-        with self.lock:
-            return self.all_results[start_idx:end_idx]
+        return self.all_results[start_idx:end_idx]
     
     def show_current_page(self):
         container = self.query_one("#results-container")
@@ -173,10 +173,9 @@ class MyApp(App):
             for result in page_results:
                 container.mount(ResultWidget(result))
         
-        with self.lock:
-            total_results = len(self.all_results)
-            fetched_count = len(self.fetched_pages)
-            fetching_count = len(self.fetching_pages)
+        total_results = len(self.all_results)
+        fetched_count = len(self.fetched_pages)
+        fetching_count = len(self.fetching_pages)
         
         total_pages = (total_results + self.results_per_page - 1) // self.results_per_page if total_results > 0 else 1
         start_idx = self.current_page * self.results_per_page + 1
@@ -214,9 +213,7 @@ class MyApp(App):
             pass
         
     def action_next_page(self):
-        with self.lock:
-            total_results = len(self.all_results)
-        
+        total_results = len(self.all_results)
         max_page = (total_results - 1) // self.results_per_page
         
         if total_results == 0 or self.current_page < max_page:
@@ -257,10 +254,11 @@ class Url:
         self.category = category
         self.sort = sort
         self.ord = ord
-        self.search = [] or search
-        self.remove = [] or remove
+        self.search = search or []
+        self.remove = remove or []
     
     def generate(self) -> str:
+        """Generate the search URL"""
         search_name = self.name.replace(" ", "+")
 
         if self.sort and self.category:
@@ -289,12 +287,12 @@ def argo() -> Url:
     search = []
     remove = []
 
-    if (args.filter):
-        for filter in args.filter:
-            if (filter[0] == '+'):
-                search.append(filter[1:].strip())
-            elif (filter[0] == '~'):
-                remove.append(filter[1:].strip())
+    if args.filter:
+        for filter_word in args.filter:
+            if filter_word[0] == '+':
+                search.append(filter_word[1:].strip())
+            elif filter_word[0] == '~':
+                remove.append(filter_word[1:].strip())
 
     kitchen = Url(
         args.name, 
@@ -304,7 +302,7 @@ def argo() -> Url:
         search=search,
         remove=remove
     )
-    return(kitchen)
+    return kitchen
 
 def parser() -> None:
     try:
@@ -315,3 +313,6 @@ def parser() -> None:
     except KeyboardInterrupt:
         print("\n\nSearch interrupted")
         exit(0)
+
+if __name__ == "__main__":
+    parser()

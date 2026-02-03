@@ -8,7 +8,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "scrapling[fetchers]>=0.3.8",
+    "scrapling[fetchers]>=0.3.14",
     "textual>=6.5.0",
 ]
 
