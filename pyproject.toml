@@ -1,6 +1,6 @@
 [project]
 name = "bt1337xearch"
-version = "0.2.1"
+version = "0.2.0"
 description = "Better search for 1337x[.]to with basic filters"
 readme = "README.md"
 authors = [
