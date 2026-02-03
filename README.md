@@ -84,8 +84,11 @@ bt1337xearch -n "Peak" -c GAME -s TIME -o ASC
 
 For each result, the tool displays:
 - Name
+- Link
 - Seeders
 - Leechers
 - Upload date
 - File size
 - Uploader
+
+<img width="1920" height="761" alt="image" src="https://github.com/user-attachments/assets/1e5ae87b-70aa-4dba-b743-a57e8a399491" />
