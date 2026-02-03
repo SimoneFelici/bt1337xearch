@@ -91,4 +91,4 @@ For each result, the tool displays:
 - File size
 - Uploader
 
-<img width="1920" height="761" alt="image" src="https://github.com/user-attachments/assets/1e5ae87b-70aa-4dba-b743-a57e8a399491" />
+<img width="1920" height="1119" alt="image" src="https://github.com/user-attachments/assets/0174586f-5a31-4a42-a7fb-b378257a2fd3" />
