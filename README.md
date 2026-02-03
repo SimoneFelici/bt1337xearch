@@ -29,6 +29,9 @@ uv tool install .
 ```
 
 ## Usage
+> [!TIP]
+> Use "ctrl + p" to display the TUI keybindings!
+
 
 ### Basic search (Probably broken)
 ```bash
