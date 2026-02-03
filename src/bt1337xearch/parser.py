@@ -6,8 +6,9 @@ from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, Static, Label, LoadingIndicator
 from textual.containers import VerticalScroll, Vertical
 from textual.binding import Binding
-from textual.worker import Worker, WorkerState
 import asyncio
+import threading
+from queue import Queue
 
 logging.getLogger('scrapling').setLevel(logging.WARNING)
 logging.getLogger('scrapling').setLevel(logging.CRITICAL)
@@ -52,6 +53,9 @@ class MyApp(App):
         self.fetching_pages = set()
         self.max_page_number = None
         self.session = None
+        self.fetch_queue = Queue()
+        self.fetch_thread = None
+        self.should_stop = False
         
     def compose(self) -> ComposeResult:
         yield Header()
@@ -60,20 +64,27 @@ class MyApp(App):
         yield Static(id="status")
         yield Footer()
         
-    async def on_mount(self):
+    def on_mount(self):
         self.update_status("Initializing...")
-        # Create the StealthySession and initialize the browser context
-        self.session = StealthySession(headless=True, solve_cloudflare=True)
-        await asyncio.to_thread(self.session.__enter__)
+        self.fetch_thread = threading.Thread(target=self._fetch_worker, daemon=True)
+        self.fetch_thread.start()
         self.update_status("Loading...")
         self.fetch_page_async(1)
         
-    async def on_unmount(self):
-        if self.session:
-            try:
-                await asyncio.to_thread(self.session.__exit__, None, None, None)
-            except:
-                pass
+    def on_unmount(self):
+        self.should_stop = True
+        if self.fetch_queue:
+            self.fetch_queue.put(None)
+        
+    def _fetch_worker(self):
+        with StealthySession(headless=True, solve_cloudflare=True) as session:
+            self.session = session
+            while not self.should_stop:
+                page_number = self.fetch_queue.get()
+                if page_number is None:
+                    break
+                self._fetch_page_sync(page_number)
+                self.fetch_queue.task_done()
         
     def fetch_page_async(self, page_number: int):
         if page_number in self.fetched_pages or page_number in self.fetching_pages:
@@ -83,18 +94,14 @@ class MyApp(App):
             return
             
         self.fetching_pages.add(page_number)
-        self.run_worker(self.fetch_page(page_number), exclusive=False)
+        self.fetch_queue.put(page_number)
         
-    async def fetch_page(self, page_number: int):
+    def _fetch_page_sync(self, page_number: int):
         cook = self.kitchen.generate()
         url = cook + str(page_number) + '/'
         
         try:
-            page = await asyncio.to_thread(
-                self.session.fetch,
-                url,
-                google_search=False
-            )
+            page = self.session.fetch(url, google_search=False)
             
             if page.status != 200:
                 self.max_page_number = page_number - 1
@@ -147,11 +154,11 @@ class MyApp(App):
             self.fetched_pages.add(page_number)
             self.fetching_pages.discard(page_number)
             
-            self.show_current_page()
+            self.call_from_thread(self.show_current_page)
             
         except Exception as e:
             self.fetching_pages.discard(page_number)
-            self.update_status(f"Page error {page_number}: {str(e)}")
+            self.call_from_thread(self.update_status, f"Page error {page_number}: {str(e)}")
         
     def get_results_for_display_page(self, display_page: int) -> list:
         start_idx = display_page * self.results_per_page
@@ -258,7 +265,6 @@ class Url:
         self.remove = remove or []
     
     def generate(self) -> str:
-        """Generate the search URL"""
         search_name = self.name.replace(" ", "+")
 
         if self.sort and self.category:
