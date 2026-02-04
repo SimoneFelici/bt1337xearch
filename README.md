@@ -1,8 +1,8 @@
 # **bt1337xearch**
-Better search for 1337x[.]to with basic filters
+1337x search TUI with Cloudflare bypass and advanced filtering
 
 ## What it does
-**bt1337xearch** is a command-line tool that searches 1337x[.]to torrents with:
+**bt1337xearch** is a command-line tool that searches 1337x torrents with:
 - Category filtering (Movies, TV, Games, etc.)
 - Sorting options (by time, size, seeders, leechers)
 - Keyword filtering (include/exclude keywords)
