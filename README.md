@@ -1,23 +1,22 @@
-# bt1337xearch
+# **bt1337xearch**
 Better search for 1337x[.]to with basic filters
 
 ## What it does
-bt1337xearch is a command-line tool that searches 1337x.to torrents with:
+**bt1337xearch** is a command-line tool that searches 1337x[.]to torrents with:
 - Category filtering (Movies, TV, Games, etc.)
 - Sorting options (by time, size, seeders, leechers)
 - Keyword filtering (include/exclude keywords)
 
 ## Prerequisites
-bt1337xearch uses scrapling StealthyFetcher for bypassing the Cloudflare Captcha. \
+**bt1337xearch** uses scrapling StealthyFetcher for bypassing the Cloudflare Captcha. \
 The StealthyFetcher uses a custom playwrigth build to made that happen. \
 You can install this playwright version using Scrapling:
 
 ```bash
-uv tool install "scrapling[shell]"
+uvx scrapling[shell] install
 ```
-```bash
-scrapling install
-```
+> [!WARNING]
+> If the "Installing Playwright dependencies..." step fails, **bt1337xearch** should still work (e.g., Arch-based distros).
 
 ## Installation
 ```bash
@@ -35,7 +34,7 @@ uv tool install .
 > Use "ctrl + p" to display the TUI keybindings!
 
 
-### Basic search (Probably broken)
+### Basic search
 ```bash
 bt1337xearch -n "Dexter"
 ```
