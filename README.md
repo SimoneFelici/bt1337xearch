@@ -1,5 +1,5 @@
 # **bt1337xearch**
-1337x search TUI with Cloudflare bypass and advanced filtering
+1337x search TUI with Cloudflare bypass and basic filtering
 
 ## What it does
 **bt1337xearch** is a command-line tool that searches 1337x torrents with:
