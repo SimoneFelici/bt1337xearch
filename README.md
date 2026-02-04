@@ -13,7 +13,9 @@ The StealthyFetcher uses a custom playwrigth build to made that happen. \
 You can install this playwright version using Scrapling:
 
 ```bash
-uv tool install scrapling
+uv tool install "scrapling[shell]"
+```
+```bash
 scrapling install
 ```
 
