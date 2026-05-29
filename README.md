@@ -71,6 +71,7 @@ bt1337xearch -n "Dexter" -c TV -f +1080p "~x265 HEVC" ~CAM
 | `-s, --sort` | Sort results by | TIME, SIZE, SEED, LEECH |
 | `-o, --order` | Sort order (default: DESC) | ASC, DESC |
 | `-f, --filter` | Filter by keywords | Use `+word` to include, `~word` to exclude |
+| `--match-all` | The '+' filter works with "AND" and not "OR" |
 
 ## Examples
 ```bash
