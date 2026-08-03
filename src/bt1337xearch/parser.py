@@ -4,6 +4,16 @@ import logging
 import threading
 import time
 
+import scrapling.engines.toolbelt.fingerprints as _fp
+
+_MAX_KNOWN = 141
+if _fp.chrome_version > _MAX_KNOWN:
+    _fp.chrome_version = _MAX_KNOWN
+if _fp.chromium_version > _MAX_KNOWN:
+    _fp.chromium_version = _MAX_KNOWN
+
+from scrapling.fetchers import StealthySession
+
 from scrapling.fetchers import StealthySession
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -117,7 +127,7 @@ class MyApp(App):
         self._wake.set()
 
     def fetch_worker(self) -> None:
-        with StealthySession(headless=True, solve_cloudflare=True) as session:
+        with StealthySession(headless=False, solve_cloudflare=True) as session:
             while not self._stop.is_set():
                 with self._lock:
                     page_number = self._next_site_page
