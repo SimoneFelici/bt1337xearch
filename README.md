@@ -34,8 +34,8 @@ uv tool install .
 > Use "ctrl + p" to display the TUI keybindings!
 
 > [!WARNING]
-> Headless mode for fetching the pages doesn't solve the captcha anymore
-> A browser window will appear while using bt1337xearch, but you can just ignore it or solve the captcha by yourself to make it faster. 
+> Headless mode for fetching the pages doesn't solve the captcha anymore.\
+> A browser window will appear while using bt1337xearch, you can either ignore it or solve the captcha by yourself to make it faster, just make sure to not close it. 
 
 ### Basic search
 ```bash
