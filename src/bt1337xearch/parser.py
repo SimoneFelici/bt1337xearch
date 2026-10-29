@@ -4,16 +4,6 @@ import logging
 import threading
 import time
 
-import scrapling.engines.toolbelt.fingerprints as _fp
-
-_MAX_KNOWN = 141
-if _fp.chrome_version > _MAX_KNOWN:
-    _fp.chrome_version = _MAX_KNOWN
-if _fp.chromium_version > _MAX_KNOWN:
-    _fp.chromium_version = _MAX_KNOWN
-
-from scrapling.fetchers import StealthySession
-
 from scrapling.fetchers import StealthySession
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -78,6 +68,7 @@ class MyApp(App):
         self._loaded_results = 0
         self._target_results = self.RESULTS_PER_PAGE
         self._reached_end = False
+        self._error: str | None = None
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -87,22 +78,32 @@ class MyApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.render()
+        self.refresh_results()
         threading.Thread(target=self.fetch_worker, daemon=True).start()
 
     def on_unmount(self) -> None:
         self._stop.set()
         self._wake.set()
 
+    def _ui(self, fn, *args) -> None:
+        if self._stop.is_set():
+            return
+        try:
+            self.call_from_thread(fn, *args)
+        except RuntimeError:
+            pass
+
     def add_debug_line(self, message: str) -> None:
         self.debug_lines.append(message)
         self.debug_lines = self.debug_lines[-self.DEBUG_LINES :]
-        self.query_one("#debug").update(
+        self.query_one("#debug", Static).update(
             "\n".join(f"[dim]{line}[/]" for line in self.debug_lines)
         )
 
     def log_from_thread(self, message: str) -> None:
-        self.call_from_thread(self.add_debug_line, message)
+        self._ui(self.add_debug_line, message)
+
+    # --- paginazione ----------------------------------------------------
 
     def page_start(self) -> int:
         return self.current_page * self.RESULTS_PER_PAGE
@@ -127,7 +128,13 @@ class MyApp(App):
         self._wake.set()
 
     def fetch_worker(self) -> None:
-        with StealthySession(headless=False, solve_cloudflare=True) as session:
+        with StealthySession(
+            headless=True,
+            solve_cloudflare=True,
+            timeout=60_000,
+            block_ads=True,
+            disable_resources=True,
+        ) as session:
             while not self._stop.is_set():
                 with self._lock:
                     page_number = self._next_site_page
@@ -135,9 +142,11 @@ class MyApp(App):
                     target = self._target_results
 
                 if self._reached_end or loaded >= target:
-                    self.call_from_thread(self.finish_loading)
+                    self._ui(self.finish_loading)
                     self._wake.wait()
                     self._wake.clear()
+                    if self._stop.is_set():
+                        break
                     continue
 
                 url = self.kitchen.generate() + str(page_number) + "/"
@@ -150,17 +159,14 @@ class MyApp(App):
                     page = session.fetch(url, google_search=False)
                 except Exception as e:
                     self._reached_end = True
-                    self.call_from_thread(self.set_status, f"Fetch error: {e}")
+                    self._error = f"Fetch error: {e}"
                     break
 
                 self.log_from_thread(f"status page={page_number}: {page.status}")
 
                 if page.status != 200:
                     self._reached_end = True
-                    self.call_from_thread(
-                        self.set_status,
-                        f"HTTP {page.status} on page {page_number}",
-                    )
+                    self._error = f"HTTP {page.status} on page {page_number}"
                     break
 
                 if page.find_by_text("No results were returned."):
@@ -182,13 +188,13 @@ class MyApp(App):
                 )
 
                 if new_results:
-                    self.call_from_thread(self.append_results, new_results)
+                    self._ui(self.append_results, new_results)
 
-        self.call_from_thread(self.finish_loading)
+        self._ui(self.finish_loading)
 
     def finish_loading(self) -> None:
         self.is_loading = False
-        self.render()
+        self.refresh_results()
 
     def parse_page(self, page) -> list[dict]:
         results = []
@@ -242,20 +248,17 @@ class MyApp(App):
 
     def append_results(self, new_results: list[dict]) -> None:
         self.all_results.extend(new_results)
-        self.render()
+        self.refresh_results()
         self.request_results()
 
-    def set_status(self, message: str) -> None:
-        self.query_one("#status").update(message)
-
     def watch_current_page(self, _: int) -> None:
-        self.render()
+        self.refresh_results()
 
     def watch_is_loading(self, _: bool) -> None:
-        self.render()
+        self.refresh_results()
 
-    def render(self) -> None:
-        container = self.query_one("#results-container")
+    def refresh_results(self) -> None:
+        container = self.query_one("#results-container", Vertical)
         container.remove_children()
 
         start = self.page_start()
@@ -279,6 +282,7 @@ class MyApp(App):
         )
         visible_end = min(end, total)
         suffix = " | Loading..." if self.is_loading else ""
+        error = f" | [red]{self._error}[/]" if self._error else ""
 
         if total == 0:
             range_text = "Results 0 of 0"
@@ -287,8 +291,8 @@ class MyApp(App):
         else:
             range_text = f"Loaded {total} results"
 
-        self.query_one("#status").update(
-            f"Page {self.current_page + 1}/{total_pages} | {range_text}{suffix}"
+        self.query_one("#status", Static).update(
+            f"Page {self.current_page + 1}/{total_pages} | {range_text}{suffix}{error}"
         )
 
     def action_next_page(self) -> None:
@@ -339,11 +343,11 @@ class Url:
     def __init__(
         self,
         name: str,
-        category: Category = None,
-        sort: Sort = None,
+        category: Category | None = None,
+        sort: Sort | None = None,
         ord: Ord = Ord.DESC,
-        search: list[str] = None,
-        remove: list[str] = None,
+        search: list[str] | None = None,
+        remove: list[str] | None = None,
         match_all: bool = False,
     ):
         self.name = name
@@ -384,23 +388,11 @@ def argo() -> Url:
         epilog="Example:\nbt1337xearch -n Dexter -c TV -s TIME -o ASC",
     )
     arg_parser.add_argument("-n", "--name", help="Name of the Media", required=True)
+    arg_parser.add_argument("-c", "--category", choices=[c.name for c in Category])
+    arg_parser.add_argument("-s", "--sort", choices=[s.name for s in Sort])
     arg_parser.add_argument(
-        "-c",
-        "--category",
-        choices=[
-            "MOVIE",
-            "TV",
-            "GAME",
-            "MUSIC",
-            "APP",
-            "DOCU",
-            "ANIME",
-            "OTHER",
-            "XXX",
-        ],
+        "-o", "--order", choices=[o.name for o in Ord], default="DESC"
     )
-    arg_parser.add_argument("-s", "--sort", choices=["TIME", "SIZE", "SEED", "LEECH"])
-    arg_parser.add_argument("-o", "--order", choices=["ASC", "DESC"], default="DESC")
     arg_parser.add_argument("-f", "--filter", nargs="+")
     arg_parser.add_argument("--match-all", action="store_true")
 

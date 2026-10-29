@@ -1,6 +1,6 @@
 [project]
 name = "bt1337xearch"
-version = "0.3.0"
+version = "0.4.0"
 description = "Better search for 1337x[.]to with basic filters"
 readme = "README.md"
 authors = [
@@ -8,8 +8,8 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "scrapling[fetchers]>=0.4.9",
-    "textual>=6.5.0",
+    "scrapling[fetchers]>=0.5",
+    "textual>=8.2.8",
 ]
 
 [project.scripts]
