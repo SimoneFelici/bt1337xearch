@@ -15,7 +15,7 @@
 uv tool install bt1337xearch
 uvx --refresh --with bt1337xearch playwright install chromium
 ```
-or
+or install from source:
 
 ```bash
 git clone https://github.com/SimoneFelici/bt1337xearch.git
