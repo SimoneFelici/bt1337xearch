@@ -1,54 +1,69 @@
 # **bt1337xearch**
+
 1337x search TUI with Cloudflare bypass and basic filtering
 
 ## What it does
+
 **bt1337xearch** is a command-line tool that searches 1337x torrents with:
 - Category filtering (Movies, TV, Games, etc.)
 - Sorting options (by time, size, seeders, leechers)
 - Keyword filtering (include/exclude keywords)
 
-## Prerequisites
-**bt1337xearch** uses scrapling StealthyFetcher for bypassing the Cloudflare Captcha. \
-The StealthyFetcher uses a custom playwrigth build to made that happen. \
-You can install this playwright version using Scrapling:
-
-```bash
-uvx scrapling[shell] install
-```
-> [!WARNING]
-> If the "Installing Playwright dependencies..." step fails, **bt1337xearch** should still work (e.g., Arch-based distros).
-
 ## Installation
+
 ```bash
 uv tool install bt1337xearch
+uvx --refresh --with bt1337xearch playwright install chromium
 ```
 or
+
 ```bash
 git clone https://github.com/SimoneFelici/bt1337xearch.git
 cd bt1337xearch
 uv tool install .
+uvx --refresh --with . playwright install chromium
+```
+
+## Update
+
+```bash
+uv tool upgrade bt1337xearch
+uvx --refresh --with bt1337xearch playwright install chromium
+```
+or, if installed from source:
+
+```bash
+cd bt1337xearch
+git pull
+uv tool install --reinstall .
+uvx --refresh --with . playwright install chromium
 ```
 
 ## Usage
+
 > [!TIP]
 > Use "ctrl + p" to display the TUI keybindings!
 
 ### Basic search
+
 ```bash
 bt1337xearch -n "Dexter"
 ```
 
 ### Search with category (Recommended)
+
 ```bash
 bt1337xearch -n "Lupin" -c ANIME
 ```
 
 ### Search with sorting
+
 ```bash
 bt1337xearch -n "Alien" -c MOVIE -s TIME -o DESC
 ```
 
 ### Advanced filtering
+
 Use `+` to include words and `~` to exclude words:
 ```bash
 # Include only results with "1080p" or "BluRay"
@@ -73,6 +88,7 @@ bt1337xearch -n "Dexter" -c TV -f +1080p "~x265 HEVC" ~CAM
 | `--match-all` | The '+' filter works with "AND" and not "OR" |
 
 ## Examples
+
 ```bash
 # Search for Dexter TV series, sorted by seeders
 bt1337xearch -n Dexter -c TV -s SEED
